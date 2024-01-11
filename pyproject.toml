@@ -33,7 +33,7 @@ geojson = "^2.5.0"
 geopandas = "^0.10.2"
 geopy = "^2.2.0"
 gunicorn = "^20.1.0"
-ibis-framework = {extras = ["postgres"], version = "^3.2.0"}
+ibis-framework = {extras = ["postgres"], version = "^7.1.0"}
 loguru = "^0.7.0"
 minio = "^7.1.15"
 plotly = "^5.11.0"
