@@ -1028,7 +1028,7 @@ class ReportCityView(TemplateView):
         for df in [df_dengue, df_chik, df_zika]:
             result = df[df.index == last_year_week]
             if not result.empty:
-                disease_last_code.append(float(result["level_code"]))
+                disease_last_code.append(float(result["level_code"].iloc[0]))
 
         max_alert_code = int(np.nanmax(disease_last_code))
         max_alert_color = ALERT_COLOR[max_alert_code]

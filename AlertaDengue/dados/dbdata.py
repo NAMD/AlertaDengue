@@ -544,14 +544,19 @@ def load_cases_without_forecast(geocode: int, disease):
     with DB_ENGINE.connect() as conn:
         table_name = "Historico_alerta" + get_disease_suffix(disease)
 
-        data_alert = pd.read_sql_query(
+        result = conn.execute(
             f"""
             SELECT * FROM "Municipio"."{table_name}"
             WHERE municipio_geocodigo={geocode} ORDER BY "data_iniSE" ASC
-            """,
-            conn,
-            parse_dates=True,
+            """
         )
+
+        data_alert = pd.DataFrame(result.fetchall(), columns=result.keys())
+
+        # Convert relevant columns to datetime
+        data_alert["data_iniSE"] = pd.to_datetime(data_alert["data_iniSE"])
+        # Add more columns if needed
+
     return data_alert
 
 
@@ -647,71 +652,67 @@ class NotificationResume:
 
         table_name = "Historico_alerta" + get_disease_suffix(disease)
 
-        sql = """
-        SELECT COALESCE(COUNT(municipio_geocodigo), 0) AS count
-        FROM (
-            SELECT DISTINCT municipio_geocodigo
-            FROM "Municipio"."%s") AS alerta
-        INNER JOIN "Dengue_global"."Municipio" AS municipio
-          ON alerta.municipio_geocodigo = municipio.geocodigo
-        WHERE uf='%s'
-        """ % (
-            table_name,
-            uf,
+        sql = text(
+            f"""
+            SELECT COALESCE(COUNT(DISTINCT a.municipio_geocodigo), 0) AS count
+            FROM "Municipio"."{table_name}" AS a
+            INNER JOIN "Dengue_global"."Municipio" AS b
+            ON a.municipio_geocodigo = b.geocodigo
+            WHERE uf= :uf
+        """
         )
 
         with DB_ENGINE.connect() as conn:
-            return pd.read_sql(sql, conn).astype(int).iloc[0]["count"]
+            result = conn.execute(sql, uf=uf)
+            total_cities = result.scalar()
+            return int(total_cities)
 
     @staticmethod
-    def tail_estimated_cases(geo_ids: list, n: int) -> pd.DataFrame:
+    def tail_estimated_cases(geo_ids: list, n: int) -> dict:
         """
-        Return the last n days of estimated cases for a list of geocodes.
+        Fetch the last 'n' estimated cases for each municipality in the given 'geo_ids'.
 
-        Parameters
-        ----------
-        geo_ids: list
-            List of geocodes
-            n: int  default: 12
-        Returns
-        -------
-            df_case_series: pd.DataFrame
+        Parameters:
+        - geo_ids (list): List of municipality geo-codes.
+        - n (int): Number of cases to retrieve.
+
+        Returns:
+        - dict: A dictionary mapping municipality geo-codes to lists of last 'n' estimated cases.
+        """
+        if not geo_ids or n < 1:
+            raise ValueError(
+                "Invalid input. Ensure geo_ids is not empty and n is a positive integer."
+            )
+
+        sql_template = """
+            SELECT
+                municipio_geocodigo, "data_iniSE", casos_est
+            FROM
+                "Municipio".historico_casos
+            WHERE
+                municipio_geocodigo = %s
+            ORDER BY
+                "data_iniSE" DESC
+            LIMIT %s
         """
 
-        if len(geo_ids) < 1:
-            raise Exception("GEO id list should have at least 1 code.")
-
-        sql_template = (
-            """(
-        SELECT
-            municipio_geocodigo, "data_iniSE", casos_est
-        FROM
-            "Municipio".historico_casos
-        WHERE
-            municipio_geocodigo={}
-        ORDER BY
-            "data_iniSE" DESC
-        LIMIT """
-            + str(n)
-            + ")"
-        )
-
-        sql_statements = [
-            str(text(sql_template.format(gid, n))) for gid in geo_ids
-        ]
-
-        sql = " UNION ".join(sql_statements)
-
-        if len(geo_ids) > 1:
-            sql += ' ORDER BY municipio_geocodigo, "data_iniSE"'
+        result_dict = {}
 
         with DB_ENGINE.connect() as conn:
-            df_case_series = pd.read_sql(text(sql), conn)
+            for geo_id in geo_ids:
+                # Use parameterized query to avoid SQL injection
+                sql = conn.execute(sql_template, (geo_id, n))
+                df_case_series = pd.DataFrame(
+                    sql.fetchall(),
+                    columns=["municipio_geocodigo", "data_iniSE", "casos_est"],
+                )
+                # breakpoint()
+                if not df_case_series.empty:
+                    result_dict[geo_id] = df_case_series[
+                        "casos_est"
+                    ].values.tolist()
 
-        return {
-            k: v.casos_est.values.tolist()
-            for k, v in df_case_series.groupby(by="municipio_geocodigo")
-        }
+        return result_dict
 
     @staticmethod
     def get_cities_alert_by_state(
@@ -779,7 +780,19 @@ class NotificationResume:
         sql = sql.format(_disease, state_name)
 
         with DB_ENGINE.connect() as conn:
-            cities_alert = pd.read_sql_query(sql, conn, "id", parse_dates=True)
+            result = conn.execute(sql)
+            rows = result.fetchall()
+
+        cities_alert = pd.DataFrame(
+            rows,
+            columns=[
+                "id",
+                "municipio_geocodigo",
+                "nome",
+                "data_iniSE",
+                "level_alert",
+            ],
+        )
 
         cache.set(cache_key, cities_alert, settings.QUERY_CACHE_TIMEOUT)
         logger.info("Cache set for key: %s", cache_key)
@@ -851,20 +864,23 @@ class Forecast:
 
         sql = """
         SELECT
-          TO_CHAR(MIN(init_date_epiweek), 'YYYY-MM-DD') AS epiweek_min,
-          TO_CHAR(MAX(init_date_epiweek), 'YYYY-MM-DD') AS epiweek_max
+            TO_CHAR(MIN(init_date_epiweek), 'YYYY-MM-DD') AS epiweek_min,
+            TO_CHAR(MAX(init_date_epiweek), 'YYYY-MM-DD') AS epiweek_max
         FROM
-          forecast.forecast_cases AS f
-          INNER JOIN forecast.forecast_city AS fc
+            forecast.forecast_cases AS f
+            INNER JOIN forecast.forecast_city AS fc
             ON (f.geocode = fc.geocode AND fc.active=TRUE)
-          INNER JOIN forecast.forecast_model AS fm
+            INNER JOIN forecast.forecast_model AS fm
             ON (fc.forecast_model_id = fm.id AND fm.active = TRUE)
         WHERE f.geocode={} AND cid10='{}'
         """.format(
             geocode, cid10
         )
 
-        values = pd.read_sql_query(sql, DB_ENGINE).values.flat
+        with DB_ENGINE.connect() as connection:
+            result = connection.execute(sql)
+            values = result.fetchone()
+
         return values[0], values[1]
 
     @staticmethod
@@ -881,29 +897,30 @@ class Forecast:
 
         sql = """
         SELECT DISTINCT ON (forecast_cases.forecast_model_id)
-          forecast_cases.forecast_model_id,
-          forecast_model.name AS forecast_model_name,
-          forecast_cases.published_date
+        forecast_cases.forecast_model_id,
+        forecast_model.name AS forecast_model_name,
+        forecast_cases.published_date
         FROM
-          forecast.forecast_cases
-          INNER JOIN forecast.forecast_model
+        forecast.forecast_cases
+        INNER JOIN forecast.forecast_model
             ON (
-              forecast_cases.forecast_model_id =
-              forecast_model.id
+            forecast_cases.forecast_model_id =
+            forecast_model.id
             )
         WHERE
-          cid10 = '%s'
-          AND geocode = %s
-          AND epiweek = %s
+        cid10 = %s
+        AND geocode = %s
+        AND epiweek = %s
         ORDER BY forecast_model_id, published_date DESC
-        """ % (
-            cid10,
-            geocode,
-            epiweek,
-        )
+        """
 
         with DB_ENGINE.connect() as conn:
-            df_forecast_model = pd.read_sql(sql, con=conn)
+            result = conn.execute(sql, (cid10, geocode, epiweek))
+            df_forecast_model = pd.DataFrame(
+                result.fetchall(), columns=result.keys()
+            )
+
+        # return df_forecast_model
 
         table_name = "Historico_alerta" + get_disease_suffix(disease)
 
@@ -1029,7 +1046,8 @@ class Forecast:
         }
 
         with DB_ENGINE.connect() as conn:
-            return pd.read_sql(sql, con=conn, parse_dates=True)
+            result = conn.execute(sql)
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
 
 
 class ReportCity:
