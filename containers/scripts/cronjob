@@ -1,5 +1,0 @@
-SHELL=/bin/bash
-
-### Send email to partners at 08:00 on Monday
-0 8 * * 1 echo "Starting the cron task" >> /var/log/cron.log 2>&1
-0 8 * * 1 bash -c "cd /opt/services/AlertaDengue/ && /activate.sh python manage.py send_mail >> /var/log/cron.log 2>&1"

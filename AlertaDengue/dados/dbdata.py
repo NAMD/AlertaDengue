@@ -2,6 +2,8 @@
 This module contains functions to interact with the main database of the
 Alertadengue project.
 """
+from sqlalchemy.engine import Engine
+from typing import List, Tuple
 import json
 import logging
 import unicodedata
@@ -15,6 +17,7 @@ import pandas as pd
 from ad_main.settings import APPS_DIR, get_ibis_conn, get_sqla_conn
 from django.conf import settings
 from django.core.cache import cache
+import ibis.expr.datatypes as dt
 from sqlalchemy import text
 from sqlalchemy.engine.base import Engine
 
@@ -107,8 +110,11 @@ def data_hist_uf(state_abbv: str, disease: str = "dengue") -> pd.DataFrame:
         res = (
             table_hist_uf[table_hist_uf.state_abbv == state_abbv]
             .order_by("SE")
-            .execute()
         )
+
+        res = res.mutate(
+            data_iniSE=res.data_iniSE.cast(dt.timestamp)
+        ).execute()
 
         cache.set(
             cache_name,
@@ -393,9 +399,7 @@ def get_city_name_by_id(geocode: int, db_engine: Engine) -> str:
         return res.fetchone()[0]
 
 '''
-from typing import List, Tuple
 
-from sqlalchemy.engine import Engine
 
 '''
 def get_all_active_cities_state(
@@ -473,13 +477,14 @@ def get_last_alert(geo_id, disease, db_engine: Engine = DB_ENGINE):
     sql = f"""
     SELECT nivel
     FROM "Municipio"."{table_name}"
-    WHERE municipio_geocodigo="{geo_id}"
+    WHERE municipio_geocodigo={geo_id}
     ORDER BY "data_iniSE" DESC
     LIMIT 1
     """
 
     with db_engine.connect() as conn:
-        return pd.read_sql_query(sql, conn)
+        data = conn.execute(sql).fetchall()
+        return pd.DataFrame(data)
 
 
 def load_series(
@@ -834,10 +839,10 @@ class Forecast:
         sql = """
         SELECT
             (CASE
-             WHEN tb_cases."data_iniSE" IS NOT NULL
+             WHEN tb_cases."data_iniSE" IS NOT Null
                THEN tb_cases."data_iniSE"
              %(forecast_date_ini_epiweek)s
-             ELSE NULL
+             ELSE Null
              END
             ) AS "data_iniSE",
             tb_cases.casos_est_min,
@@ -846,9 +851,9 @@ class Forecast:
             tb_cases.casos,
             tb_cases.nivel,
             (CASE
-             WHEN tb_cases."SE" IS NOT NULL THEN tb_cases."SE"
+             WHEN tb_cases."SE" IS NOT Null THEN tb_cases."SE"
              %(forecast_epiweek)s
-             ELSE NULL
+             ELSE Null
              END
             ) AS "SE",
             tb_cases.p_rt1
@@ -914,7 +919,7 @@ class Forecast:
             # forecast date ini selection
             forecast_date_ini_epiweek += (
                 """
-            WHEN forecast%(model_id)s.init_date_epiweek IS NOT NULL
+            WHEN forecast%(model_id)s.init_date_epiweek IS NOT Null
                THEN forecast%(model_id)s.init_date_epiweek
             """
                 % forecast_config
@@ -923,7 +928,7 @@ class Forecast:
             # forecast epiweek selection
             forecast_epiweek += (
                 """
-            WHEN forecast%(model_id)s.epiweek IS NOT NULL
+            WHEN forecast%(model_id)s.epiweek IS NOT Null
                THEN forecast%(model_id)s.epiweek
             """
                 % forecast_config

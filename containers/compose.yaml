@@ -37,6 +37,30 @@ services:
     networks:
       - infodengue
 
+  redis:
+    container_name: infodengue-${ENV}-redis
+    hostname: infodengue-${ENV}-redis
+    platform: linux/amd64
+    image: redis:alpine
+    restart: unless-stopped
+    # environment:
+      # DISABLE_COMMANDS: "FLUSHDB,FLUSHALL,CONFIG"
+      # ALLOW_EMPTY_PASSWORD: "no"
+      # REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    ports:
+      - ${REDIS_PORT}:6379
+    healthcheck:
+      test: ["CMD", "redis-cli","ping"]
+      interval: 60s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - redis:/data
+    networks:
+      - infodengue
+
+
   base_postgres:
     build:
       context: ".."
@@ -65,7 +89,7 @@ services:
     user: ${HOST_UID}:${HOST_GID}
     volumes:
       - ${PG_DATA_PROD}:/var/lib/postgresql/data
-      - ../containers/postgres/setup/:/docker-entrypoint-initdb.d/
+      - ../containers/postgres/setup/:/docker-entrypoint-initdb.d/compose
       - ../containers/postgres/dumps/:/dumps/
     command: -p ${PSQL_PORT}
     restart: always
@@ -172,16 +196,18 @@ services:
     hostname: infodengue-${ENV}-worker
     extends:
       service: base
-    entrypoint: ["bash", "/entrypoint.sh", "/opt/services/run_services.sh"]
+    entrypoint: ["bash", "/entrypoint.sh", "/opt/services/celery.sh"]
     # command: ["python3", "/opt/services/AlertaDengue/dbf/collector.py"]
     env_file:
       - ../.env
-    # volumes:
+    volumes:
+      - ${EPISCANNER_HOST_DIR}:/opt/services/episcanner
     #   - ${HOST_MINIO_DATA_DIR}:/opt/services/collector
     user: ${HOST_UID}:${HOST_GID}
     depends_on:
       - rabbitmq
       - memcached
+      - redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", 'celery --app ad_main.celeryapp.app status']
@@ -194,6 +220,8 @@ services:
 
 volumes:
   dumps:
+  redis:
+
 
 networks:
   infodengue:

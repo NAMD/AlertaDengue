@@ -9,6 +9,7 @@ from ad_main import settings
 
 # from .celery import app
 from ad_main.celeryapp import app
+from celery.schedules import crontab
 from dados.episem import episem
 from dbf.db import is_partner_active
 from django.core import mail
@@ -18,6 +19,19 @@ from django.template.loader import render_to_string
 
 from .models import DBF
 from .sinan import Sinan
+
+app.conf.beat_schedule = {
+    "send-mail-daily": {
+        "task": "dbf.tasks.send_mail_partner",
+        "schedule": crontab(
+            minute="0",
+            hour="3",
+            day="*",
+            month="*",
+            day_of_week="1"
+        ),
+    },
+}
 
 
 def send_success_email(dbf):

@@ -1,6 +1,7 @@
 from typing import Optional
 
 import ibis
+import ibis.expr.datatypes as dt
 import pandas as pd
 
 # local
@@ -36,7 +37,7 @@ class AlertCity:
 
         if disease not in CID10.keys():
             raise Exception(
-                f"The diseases available are: {[k for k in CID10.keys()]}"
+                f"The diseases available are: {list(CID10.keys())}"
             )
 
         table_suffix = ""
@@ -67,6 +68,10 @@ class AlertCity:
 
         t_hist_accum_expr = t_hist_filter_expr.mutate(
             notif_accum_year=t_hist_filter_expr.casos.sum()
+        )
+
+        t_hist_accum_expr = t_hist_accum_expr.mutate(
+            data_iniSE=t_hist_accum_expr.data_iniSE.cast(dt.timestamp)
         )
 
         # print(ibis.impala.compile(t_hist_accum_expr))

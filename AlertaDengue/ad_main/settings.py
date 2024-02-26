@@ -87,6 +87,7 @@ THIRD_PARTY_APPS = [
     "manager.router",
     "maintenance_mode",
     "django_celery_results",
+    "django_celery_beat",
 ]
 
 LOCAL_APPS = [

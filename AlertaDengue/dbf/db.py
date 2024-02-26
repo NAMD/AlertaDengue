@@ -17,4 +17,5 @@ def is_partner_active():
     """
 
     with DB_ENGINE.connect() as conn:
-        return pd.read_sql(sql, conn)
+        data = conn.execute(sql).fetchall()
+        return pd.DataFrame(data)

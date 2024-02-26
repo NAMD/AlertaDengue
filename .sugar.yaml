@@ -9,14 +9,16 @@ groups:
     project-name: infodengue-dev
     compose-path:
       - containers/compose.yaml
+      - containers/compose-dev.yaml
     env-file: .env
     services:
-      default: memcached,rabbitmq,web,worker,stagingdb
+      default: memcached,rabbitmq,redis,web,worker,stagingdb
       available:
         - name: stagingdb
         - name: web
         - name: memcached
         - name: rabbitmq
+        - name: redis
         - name: worker
 
   prod:
@@ -24,10 +26,11 @@ groups:
     compose-path: containers/compose.yaml
     env-file: .env
     services:
-      default: memcached,rabbitmq,web,worker
+      default: memcached,rabbitmq,redis,web,worker
       available:
         - name: postgres
         - name: web
         - name: memcached
         - name: rabbitmq
+        - name: redis
         - name: worker
