@@ -87,6 +87,7 @@ THIRD_PARTY_APPS = [
     "manager.router",
     "maintenance_mode",
     "django_celery_results",
+    "corsheaders",
 ]
 
 LOCAL_APPS = [
@@ -114,6 +115,8 @@ MIDDLEWARE = (
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "maintenance_mode.middleware.MaintenanceModeMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
 )
 
 if DEBUG:
@@ -441,3 +444,11 @@ MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT")
 MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER")
 MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD")
 MINIO_BUCKET_NAME = os.getenv("MINIO_BUCKET_NAME")
+
+# HEADERS
+# ------------------------------------------------------------------------------
+CORS_ALLOWED_ORIGINS = [
+    f"http://127.0.0.1:{os.getenv('WEB_PORT')}",
+    "http://0.0.0.0:8042",
+    "https://api.mosqlimate.org",
+]

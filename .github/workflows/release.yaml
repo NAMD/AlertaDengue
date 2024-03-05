@@ -18,12 +18,12 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: recursive
 
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: conda-incubator/setup-miniconda@v3
       with:
         miniconda-version: "latest"
         mamba-version: "*"
@@ -35,7 +35,7 @@ jobs:
 
     - uses: actions/setup-node@v3
       with:
-        node-version: 18
+        node-version: 20.11.0
 
     - name: Test release
       if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -51,7 +51,7 @@ jobs:
           -p "@semantic-release/exec" \
           -p "@semantic-release/github" \
           -p "@semantic-release/git" \
-          -p "@google/semantic-release-replace-plugin" \
+          -p "semantic-release-replace-plugin" \
           semantic-release --dry-run
 
     - name: Release
@@ -68,5 +68,5 @@ jobs:
           -p "@semantic-release/exec" \
           -p "@semantic-release/github" \
           -p "@semantic-release/git" \
-          -p "@google/semantic-release-replace-plugin" \
+          -p "semantic-release-replace-plugin" \
           semantic-release --ci
