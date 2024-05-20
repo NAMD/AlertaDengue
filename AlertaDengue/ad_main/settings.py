@@ -151,6 +151,10 @@ PSQL_HOST = os.getenv("PSQL_HOST")
 PSQL_PASSWORD = os.getenv("PSQL_PASSWORD")
 PSQL_PORT = os.getenv("PSQL_PORT")
 
+# OWNCLOUD
+# ------------------------------------------------------------------------------
+OWNCLOUD_URL = os.getenv("OWNCLOUD_URL")
+
 DATABASE_ROUTERS = ["manager.router.DatabaseAppsRouter"]
 
 DATABASE_APPS_MAPPING = {

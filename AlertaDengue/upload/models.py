@@ -1,5 +1,3 @@
-import shutil
-import os
 import csv
 from pathlib import Path
 from typing import Optional, TypeVar, Type
@@ -8,7 +6,6 @@ import pandas as pd
 from simpledbf import Dbf5
 
 from django.db import models
-from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
@@ -21,9 +18,18 @@ from upload.sinan.validations import (
     validate_fields,
 )
 
-User = get_user_model()
 T = TypeVar('T', bound='SINAN')
 U = TypeVar('U', bound='User')
+User = get_user_model()
+
+
+class OwnCloudUser(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    username = models.CharField(max_length=100)
+    password = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.username
 
 
 class UFs(models.TextChoices):
@@ -149,7 +155,7 @@ class SINAN(models.Model):
         help_text=_("Amount of inserted rows in database"),
     )
     uploaded_by = models.ForeignKey(
-        "auth.User",
+        User,
         on_delete=models.SET_NULL,
         null=True
     )

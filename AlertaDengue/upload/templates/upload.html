@@ -2,7 +2,7 @@
 {% load i18n %}
 {% load static %}
 
-{% block content %}
+  {% block content %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 <div class="container mt-5">
@@ -10,17 +10,68 @@
 
   <form id="uploadForm" method="POST" enctype="multipart/form-data">
     {% csrf_token %}
-    <label for="file" class="form-label">{% translate "Select File" %}</label>
-    <div class="container">
-      <div class="row align-items-center">
-        <div class="col-auto me-auto">
-          <div class="input-container">
-            <label class="input-group-text btn btn-outline-secondary" for="file" style="display: flex;">{% translate "Choose file" %}</label>
-            <div class="input-group">
-              <input type="file" class="form-control" id="file" name="file" accept=".csv,.csv.gz, .dbf, .parquet" style="display: none;">
+    <div id="owncloud-to-select">
+      <center><h3>OwnCloud Files:</h3></center>
+      <ul class="list-group" id="owncloud-file-list">
+        <li class="list-group-item bg-secondary text-white py-1 my-auto">
+          <div id="owncloud-file-list-header" class="row">
+            <div class="col">
+              <p><b>File</b></p>
+            </div>
+            <div class="col-4 text-center">
+              <p><b>Size</b></p>
+            </div>
+            <div class="col-4 text-center">
+              <p><b>Last Modified</b></p>
             </div>
           </div>
+        </li>
+        <li id="loading-files" class="list-group-item py-1">
+          <div class="text-center">
+            <p>{% trans "Loading files..." %}</p>
+          </div>
+        </li>
+        <li id="owncloud-error" class="list-group-item py-1">
+          <div class="text-center">
+            <p>{% trans "OwnCloud Server Error" %}</p>
+          </div>
+        </li>
+      </ul>
+
+      <div id="owncloud-buttons" class="pt-3 pb-3 justify-content-center gap-3">
+        <center>
+          <button id="owncloud-load-more-btn" class="btn btn-outline-secondary me-3">{% translate "Load more" %}</button>
+          <button id="owncloud-choose-files-btn" class="btn btn-outline-secondary">{% translate "Choose selected" %}</button>
+        </center>
+      </div>
+
+      <div id="owncloud-to-download">
+        <center><h3 id="chosen-h3">Chosen OwnCloud Files:</h3></center>
+        <ul class="list-group" id="owncloud-chosen-file-list">
+          <li class="list-group-item bg-secondary text-white py-1 my-auto">
+            <div id="owncloud-file-list-header" class="row">
+              <div class="col">
+                <p><b>File</b></p>
+              </div>
+              <div class="col-4 text-center">
+                <p><b>Size</b></p>
+              </div>
+              <div class="col-4 text-center">
+                <p><b>Last Modified</b></p>
+              </div>
+            </div>
+          </li>
+        </ul>
+        <div id="owncloud-buttons-to-download" class="pt-3 pb-3 justify-content-center gap-3">
+          <center>
+            <button id="owncloud-download-selected-btn" class="btn btn-outline-secondary">{% translate "Download file(s)" %}</button>
+          </center>
         </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="row align-items-center">
         <div class="col">
           <div class="file-info" style="display: none;">
             <span class="file-name"></span>
@@ -99,222 +150,479 @@
     </div>
   </div>
 
-<style>
+  <style>
+
+.list-group-item-file:hover {
+  background-color: #343a40;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.owncloud-selected-file {
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1), inset 0px -3px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #89938e;
+  background-color: #dbdddc;
+}
+
 .input-container {
-    display: inline-flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#owncloud-to-select {
+  padding: 10px 5% 0 5%;
+}
+
+#owncloud-file-list .list-group-item {
+  overflow: hidden;
+  align-items: center;
+}
+
+.owncloud-chosen-file {
+  background-color: transparent;
+  border: 1px solid #89938e;
+  color: #a7a48d;
+  pointer-events: none;
+}
+
+.owncloud-download-file {
+  pointer-events: none;
 }
 
 .file-info {
-    display: flex;
+  display: flex;
 }
 
 .icons {
-    margin-left: 10px;
+  margin-left: 10px;
 }
 
 .icons > div {
-    margin-right: 5px;
+  margin-right: 5px;
 }
 
 .error-icon {
-    position: relative;
-    display: inline-block;
+  position: relative;
+  display: inline-block;
 }
 
 .error-icon i {
-    cursor: help;
-    color: red;
+  cursor: help;
+  color: red;
 }
 
 .warning-icon {
-    position: relative;
-    display: inline-block;
+  position: relative;
+  display: inline-block;
 }
 
 .warning-icon i {
-    cursor: help;
-    color: #CFC720;
+  cursor: help;
+  color: #CFC720;
 }
 
 .ok-icon {
-    position: relative;
-    display: inline-block;
+  position: relative;
+  display: inline-block;
 }
 
 .ok-icon i {
-    cursor: default;
-    color: green;
+  cursor: default;
+  color: green;
 }
 
 .tooltip {
-    visibility: hidden;
-    width: 200px;
-    background-color: #E95A3B;
-    color: white;
-    text-align: center;
-    border-radius: 6px;
-    padding: 5px;
-    position: absolute;
-    z-index: 1;
-    top: 125%;
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    transition: opacity 0.3s;
+  visibility: hidden;
+  width: 200px;
+  background-color: #E95A3B;
+  color: white;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px;
+  position: absolute;
+  z-index: 1;
+  top: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
 .error-icon:hover .tooltip {
-    visibility: visible;
-    opacity: 1;
+  visibility: visible;
+  opacity: 1;
 }
 </style>
 
-<script>
-  var file;
+  <script>
+  $('#owncloud-error').hide();
+  $('#owncloud-load-more-btn').hide();
+  $('#owncloud-choose-files-btn').hide();
+  $('#owncloud-to-download').hide();
 
-  document.getElementById('file').addEventListener('change', function(event) {
-    event.preventDefault();
-    var formData = new FormData();
-    file = event.target.files[0];
-    const submitBtn = document.querySelector('#submit-btn');
+  document.addEventListener('DOMContentLoaded', function() {
+    let owncloudFiles = [];
+    let owncloudFilesIndex = 0;
+    let owncloudTaskIDs = [];
 
-    $('.file-name').text(file.name);
-    $('.file-info').show();
-    $('.error-icon').hide();
-    $('.ok-icon').hide();
+    function fetchOwnCloudFiles() {
+      const fetchWithTimeout = (url, options, timeout = 3000) => {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error('Request timed out'));
+          }, timeout);
 
-    function readFirstRows(file, maxRows) {
-      return new Promise((resolve, reject) => {
-        var reader = new FileReader();
-        var chunkSize = 20000;
-        var offset = 0;
-        var rows = '';
-        var header = '';
+          fetch(url, options)
+            .then(response => {
+              clearTimeout(timer);
+              if (!response.ok) {
+                reject(new Error(response.statusText));
+              } else {
+                resolve(response.json());
+              }
+            })
+            .catch(err => {
+              clearTimeout(timer);
+              reject(err);
+            });
+        });
+      };
 
-        reader.onload = function(event) {
-          var result = event.target.result;
-          rows += result;
-
-          var delimiterIndex = rows.indexOf('\n');
-          var count = 0;
-          while (delimiterIndex !== -1 && count < maxRows) {
-            if (count === 0) {
-              header = rows.slice(0, delimiterIndex + 1);
-            }
-            rows = rows.slice(delimiterIndex + 1);
-            delimiterIndex = rows.indexOf('\n');
-            count++;
+      const retryFetch = (url, options, retries = 3) => {
+        return fetchWithTimeout(url, options).catch(error => {
+          if (retries > 0) {
+            console.log(`Retrying... (${retries} retries left)`);
+            return retryFetch(url, options, retries - 1);
+          } else {
+            $('#loading-files').hide();
+            $('#owncloud-error').show();
+            throw error;
           }
+        });
+      };
 
-          if (count >= maxRows || delimiterIndex === -1) {
-            resolve({ header: header, data: rows.slice(0, -1) });
-          } else if (offset < file.size) {
-            offset += chunkSize;
-            var chunk = file.slice(offset, offset + chunkSize);
-            reader.readAsText(chunk);
-          }
-        };
+      retryFetch('/upload/sinan/owncloud/list-files/?directory-path=/Dados%20Infodengue', {
+        method: 'GET',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        }
+      }, 3)
+        .then(data => {
+          owncloudFiles = data.owncloud_files;
+          displayNextOwnCloudFiles();
+        })
+        .catch(error => {
+          displayError(error.message);
+        });
+    }
 
-        reader.onerror = function(event) {
-          reject(event.target.error);
-        };
-
-        var chunk = file.slice(0, chunkSize);
-        reader.readAsText(chunk);
+    function toggleSelectedFileOnClick() {
+      const listItems = document.querySelectorAll('.list-group-item-file');
+      listItems.forEach(item => {
+        if (!item.hasAttribute('data-toggle-listener')) {
+          item.addEventListener('click', function() {
+            this.classList.toggle('owncloud-selected-file');
+          });
+          item.setAttribute('data-toggle-listener', 'true');
+        }
       });
     }
 
-    readFirstRows(file, 10)
-      .then(result => {
-        var blob = new Blob([result.header, result.data], { type: 'text/plain' });
-        var truncatedFile = new File([blob], file.name);
-        formData.append('truncated-file', truncatedFile);
+    function displayNextOwnCloudFiles() {
+      const fileList = document.getElementById('owncloud-file-list');
+      const filesToShowIndex = Math.min(owncloudFilesIndex + 5, owncloudFiles.length);
+      for (let i = owncloudFilesIndex; i < filesToShowIndex; i++) {
+        const file = owncloudFiles[i];
+        const listItem = document.createElement('li');
+        listItem.classList.add('list-group-item', 'list-group-item-file', 'py-1', 'my-auto');
+        const rowDiv = document.createElement('div');
+        rowDiv.classList.add('row');
 
-        fetch('/upload/sinan/csv-preview/', {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'X-CSRFToken': '{{ csrf_token }}'
-          }
-        })
-          .then(response => response.json())
-          .then(data => {
-            submitBtn.classList.add('btn-primary');
-            submitBtn.classList.remove('btn-warning');
-            if (data.error) {
-              $('.error-icon').show().find('.tooltip').text(data.error);
-              let extension = file.name.split('.').pop().toLowerCase();
-              submitBtn.disabled = true;
-              if (extension === "dbf" | extension === "parquet") {
-                submitBtn.classList.add('btn-warning');
-                submitBtn.classList.remove('btn-primary');
-                submitBtn.disabled = false;
-              }
-            } else {
-              $('.error-icon').hide();
-              $('.ok-icon').show();
-              if (data.warning) {
-                $('.ok-icon').hide();
-                $('.warning-icon').show().find('.tooltip').text(data.warning);
-                submitBtn.classList.add('btn-warning');
-                submitBtn.classList.remove('btn-primary');
-              }
-              submitBtn.disabled = false;
-            }
-          })
-      })
-      .catch(error => console.error('Error reading file:', error));
-  });
+        const fileStatusClass = getFileStatusClass(file.status);
 
-  document.getElementById('dataForm').addEventListener('submit', function(event) {
-    event.preventDefault();
-    var form = this;
-    var formData = new FormData(this);
-    var modal = document.getElementById('uploadModal');
-
-    modal.style.display = 'block';
-    formData.append('file', file);
-
-    fetch('/upload/sinan/upload-file/', {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'X-CSRFToken': '{{ csrf_token }}'
+        rowDiv.innerHTML = `
+          <div class="col" id="${file.name}">
+            <div class="file-info">
+              <div class="file-name">${file.name}</div>
+              <div class="file-status pl-1">${file.status}</div>
+              <div class="${fileStatusClass.okIcon}" style="display: ${fileStatusClass.displayOkIcon}">
+                <i class="fas fa-check-circle"></i>
+                <div class="tooltip">OK</div>
+              </div>
+              <div class="${fileStatusClass.warningIcon}" style="display: ${fileStatusClass.displayWarningIcon}">
+                <i class="fas fa-exclamation-circle"></i>
+                <div class="tooltip">Warning</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-4 text-center">
+            <p>${formatBytes(file.size)}</p>
+          </div>
+          <div class="col-4 text-center">
+            <p>${file.last_modify}</p>
+          </div>
+        `;
+        listItem.appendChild(rowDiv);
+        fileList.appendChild(listItem);
       }
-    })
-    .then(response => response.json())
-    .then(data => {
-      fetch('/upload/sinan/chunk-upload-file/', {
+      owncloudFilesIndex = filesToShowIndex;
+      $('#loading-files').hide();
+      $('#owncloud-load-more-btn').show();
+      $('#owncloud-choose-files-btn').show();
+      toggleSelectedFileOnClick();
+
+      if (owncloudFilesIndex >= owncloudFiles.length) {
+        $('#owncloud-load-more-btn').hide();
+      }
+    }
+
+    function getFileStatusClass(status) {
+      let okIconClass = 'ok-icon';
+      let displayOkIcon = 'none';
+      let warningIconClass = 'warning-icon';
+      let displayWarningIcon = 'none';
+      let errorIconClass = 'error-icon';
+      let displayErrorIcon = 'none';
+
+      if (status === 'finished') {
+        displayOkIcon = 'inline-block';
+      } else if (status === 'finished_misparsed') {
+        displayWarningIcon = 'inline-block';
+      } else if (status === 'error') {
+        displayErrorIcon = 'inline-block';
+      }
+
+      return { okIcon: okIconClass, displayOkIcon: displayOkIcon, warningIcon: warningIconClass, displayWarningIcon: displayWarningIcon, errorIcon: errorIconClass, displayErrorIcon: displayErrorIcon };
+    }
+
+    function displayError(errorMessage) {
+      const fileList = document.getElementById('owncloud-file-list');
+      fileList.innerHTML = `<div class="alert alert-danger" role="alert">OwnCloud Error: ${errorMessage}</div>`;
+      document.getElementById('load-more-btn').style.display = 'none';
+    }
+
+    fetchOwnCloudFiles();
+    var file;
+
+    document.getElementById('owncloud-load-more-btn').addEventListener('click', () => {
+      event.preventDefault();
+      displayNextOwnCloudFiles();
+      toggleSelectedFileOnClick()
+    });
+
+    document.getElementById('owncloud-choose-files-btn').addEventListener('click', () => {
+      event.preventDefault();
+      $('#owncloud-to-download').show();
+
+      const selectedFiles = document.querySelectorAll('.owncloud-selected-file');
+      selectedFiles.forEach(file => {
+        const clonedItem = file.cloneNode(true);
+        clonedItem.classList.remove('owncloud-selected-file');
+        clonedItem.classList.add('owncloud-download-file');
+        $("#owncloud-chosen-file-list").append(clonedItem);
+        file.classList.remove('owncloud-selected-file');
+        file.classList.add('owncloud-chosen-file');
+      })
+    });
+
+    document.getElementById('owncloud-download-selected-btn').addEventListener('click', () => {
+      event.preventDefault();
+      const chosenFiles = document.querySelectorAll('.owncloud-chosen-file .file-name');
+      const fileNames = Array.from(chosenFiles).map(item => item.id);
+      console.log(fileNames);
+      downloadOwnCloudFiles(fileNames);
+      $('#owncloud-buttons-to-download').hide();
+    });
+
+    async function downloadOwnCloudFiles(fileNames, maxRetries = 3) {
+      const taskIds = [];
+      for (const file of fileNames) {
+        const filePath = `/Dados Infodengue/${file}`;
+        const formData = new FormData();
+        formData.append('file_path', filePath);
+
+        let attempt = 0;
+        let success = false;
+        while (attempt < maxRetries && !success) {
+          try {
+            const response = await fetch('/upload/sinan/owncloud/get-file/', {
+              method: 'POST',
+              body: formData,
+              headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+              }
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.task_id) {
+              taskIds.push(data.task_id);
+              success = true;
+            } else {
+              console.error(`Error: ${data.error}`);
+            }
+          } catch (error) {
+            attempt++;
+            if (attempt >= maxRetries) {
+              console.error('Error during fetch after maximum retries:', error);
+            } else {
+              console.warn(`Retrying fetch attempt ${attempt}...`);
+            }
+          }
+        }
+      }
+      owncloudTaskIDs = taskIds;
+      console.log(owncloudTaskIDs);
+    }
+
+    // document.getElementById('file').addEventListener('change', function(event) {
+    //   event.preventDefault();
+    //   var formData = new FormData();
+    //   file = event.target.files[0];
+    //   const submitBtn = document.querySelector('#submit-btn');
+    //
+    //   $('.file-name').text(file.name);
+    //   $('.file-info').show();
+    //   $('.error-icon').hide();
+    //   $('.ok-icon').hide();
+    //
+    //   function readFirstRows(file, maxRows) {
+    //     return new Promise((resolve, reject) => {
+    //       var reader = new FileReader();
+    //       var chunkSize = 20000;
+    //       var offset = 0;
+    //       var rows = '';
+    //       var header = '';
+    //
+    //       reader.onload = function(event) {
+    //         var result = event.target.result;
+    //         rows += result;
+    //
+    //         var delimiterIndex = rows.indexOf('\n');
+    //         var count = 0;
+    //         while (delimiterIndex !== -1 && count < maxRows) {
+    //           if (count === 0) {
+    //             header = rows.slice(0, delimiterIndex + 1);
+    //           }
+    //           rows = rows.slice(delimiterIndex + 1);
+    //           delimiterIndex = rows.indexOf('\n');
+    //           count++;
+    //         }
+    //
+    //         if (count >= maxRows || delimiterIndex === -1) {
+    //           resolve({ header: header, data: rows.slice(0, -1) });
+    //         } else if (offset < file.size) {
+    //           offset += chunkSize;
+    //           var chunk = file.slice(offset, offset + chunkSize);
+    //           reader.readAsText(chunk);
+    //         }
+    //       };
+    //
+    //       reader.onerror = function(event) {
+    //         reject(event.target.error);
+    //       };
+    //
+    //       var chunk = file.slice(0, chunkSize);
+    //       reader.readAsText(chunk);
+    //     });
+    //   }
+    //
+    //   readFirstRows(file, 10)
+    //     .then(result => {
+    //       var blob = new Blob([result.header, result.data], { type: 'text/plain' });
+    //       var truncatedFile = new File([blob], file.name);
+    //       formData.append('truncated-file', truncatedFile);
+    //
+    //       fetch('/upload/sinan/csv-preview/', {
+    //         method: 'POST',
+    //         body: formData,
+    //         headers: {
+    //           'X-CSRFToken': '{{ csrf_token }}'
+    //         }
+    //       })
+    //         .then(response => response.json())
+    //         .then(data => {
+    //           submitBtn.classList.add('btn-primary');
+    //           submitBtn.classList.remove('btn-warning');
+    //           if (data.error) {
+    //             $('.error-icon').show().find('.tooltip').text(data.error);
+    //             let extension = file.name.split('.').pop().toLowerCase();
+    //             submitBtn.disabled = true;
+    //             if (extension === "dbf" | extension === "parquet") {
+    //               submitBtn.classList.add('btn-warning');
+    //               submitBtn.classList.remove('btn-primary');
+    //               submitBtn.disabled = false;
+    //             }
+    //           } else {
+    //             $('.error-icon').hide();
+    //             $('.ok-icon').show();
+    //             if (data.warning) {
+    //               $('.ok-icon').hide();
+    //               $('.warning-icon').show().find('.tooltip').text(data.warning);
+    //               submitBtn.classList.add('btn-warning');
+    //               submitBtn.classList.remove('btn-primary');
+    //             }
+    //             submitBtn.disabled = false;
+    //           }
+    //         })
+    //     })
+    //     .catch(error => console.error('Error reading file:', error));
+    // });
+
+    document.getElementById('dataForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      var form = this;
+      var formData = new FormData(this);
+      var modal = document.getElementById('uploadModal');
+
+      modal.style.display = 'block';
+      formData.append('file', file);
+
+      fetch('/upload/sinan/upload-file/', {
         method: 'POST',
-        body: new URLSearchParams({"file_path": data.file_path}),
+        body: formData,
         headers: {
           'X-CSRFToken': '{{ csrf_token }}'
         }
       })
-      .then(response => response.json())
-      .then(task => {
-        modal.style.display = 'none';
-        var context = {
-            user_id: '{{ request.user.id }}',
-            disease: document.getElementById('disease').value,
-            notification_year: document.getElementById('notification_year').value,
-            uf: document.getElementById('uf').value,
-            file_path: data.file_path,
-            task_id: task.task_id
-        };
-        let params = new URLSearchParams(context).toString();
+        .then(response => response.json())
+        .then(data => {
+          fetch('/upload/sinan/chunk-upload-file/', {
+            method: 'POST',
+            body: new URLSearchParams({"file_path": data.file_path}),
+            headers: {
+              'X-CSRFToken': '{{ csrf_token }}'
+            }
+          })
+            .then(response => response.json())
+            .then(task => {
+              modal.style.display = 'none';
+              var context = {
+                user_id: '{{ request.user.id }}',
+                disease: document.getElementById('disease').value,
+                notification_year: document.getElementById('notification_year').value,
+                uf: document.getElementById('uf').value,
+                file_path: data.file_path,
+                task_id: task.task_id
+              };
+              let params = new URLSearchParams(context).toString();
 
-        window.location.href = '/upload/sinan/process-file/?'+ params;
-      })
-    })
-    .catch(error => {
-      // TODO: send to error page
-      console.error('Error uploading file:', error);
-      modal.style.display = 'none';
+              window.location.href = '/upload/sinan/process-file/?'+ params;
+            })
+        })
+        .catch(error => {
+          // TODO: send to error page
+          console.error('Error uploading file:', error);
+          modal.style.display = 'none';
+        });
     });
-  });
-</script>
+
+    function formatBytes(a,b=2){if(!+a)return"0 Bytes";const c=0>b?0:b,d=Math.floor(Math.log(a)/Math.log(1024));return`${parseFloat((a/Math.pow(1024,d)).toFixed(c))} ${["Bytes","KiB","MiB","GiB"][d]}`}
+  })
+  </script>
 {% endblock %}

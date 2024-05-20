@@ -57,6 +57,7 @@ lmfit = "^1.1.0"
 pandas = ">=2.1.0"
 psycopg2 = "^2.9.9"
 minio = "^7.2.5"
+pyocclient = "^0.6"
 
 
 [tool.poetry.group.dev.dependencies]

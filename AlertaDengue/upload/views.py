@@ -3,9 +3,11 @@ import re
 import io
 import csv
 from datetime import datetime
+from dateutil import parser
 from pathlib import Path
 
 import pandas as pd
+import owncloud
 
 from django.http import JsonResponse, HttpResponse, HttpRequest
 from django.contrib.auth import get_user_model
@@ -18,8 +20,8 @@ from django.core.files.uploadedfile import UploadedFile
 from celery.result import AsyncResult
 
 from .sinan.utils import EXPECTED_FIELDS, REQUIRED_FIELDS
-from .tasks import sinan_split_by_uf_or_chunk
-from .models import UFs, Diseases, SINAN
+from .tasks import sinan_split_by_uf_or_chunk, owncloud_download_file
+from .models import UFs, Diseases, SINAN, OwnCloudUser
 
 
 User = get_user_model()
@@ -88,6 +90,137 @@ class ProcessSINAN(View):
         context["file_name"] = Path(str(file_path)).name
 
         return render(request, self.template_name, context)
+
+
+@never_cache
+def owncloud_list_files(request: HttpRequest) -> JsonResponse:
+    if not request.user.is_staff:  # type: ignore
+        return JsonResponse(
+            {'error': 'Unauthorized'}, status=403
+        )
+
+    if request.method == "GET":
+        try:
+            owncloud_user = OwnCloudUser.objects.get(user=request.user)
+        except OwnCloudUser.DoesNotExist:
+            return JsonResponse(
+                {'error': (
+                    'OwnCloud user not configured. Please contact the moderation'
+                )}, status=404
+            )
+
+        directory = request.GET.get("directory-path")
+
+        try:
+            oc = owncloud.Client(settings.OWNCLOUD_URL)
+            oc.login(owncloud_user.username, owncloud_user.password)
+        except (owncloud.HTTPResponseError, AttributeError):
+            oc.logout()
+            return JsonResponse(
+                {'error': (
+                    'Unable to login with OwnCloud user '
+                    f'{owncloud_user.username}'
+                )}, status=403
+            )
+
+        try:
+            files = sorted(
+                oc.list(directory),
+                key=(
+                    lambda file: parser.parse(
+                        file.attributes['{DAV:}getlastmodified']
+                    )
+                ),
+                reverse=True
+            )
+        except owncloud.HTTPResponseError:
+            return JsonResponse(
+                {'error': f'Directory {directory} not found'},
+                status=404
+            )
+        finally:
+            oc.logout()
+
+        res: list[dict[str, str | int]] = []
+        for file in files:
+            res_file = {}
+            last_modify = parser.parse(
+                file.attributes['{DAV:}getlastmodified']
+            )
+            res_file["name"] = file.name
+            res_file["path"] = file.path
+            res_file["last_modify"] = last_modify.strftime("%x %H:%M")
+            res_file["size"] = file.get_size()
+            try:
+                res_file["status"] = SINAN.objects.get(filename=file.name)
+            except SINAN.DoesNotExist:
+                res_file["status"] = ""
+            res.append(res_file)
+
+        return JsonResponse({"owncloud_files": res}, status=200)
+    return JsonResponse({'error': 'Invalid request'}, status=403)
+
+
+@never_cache
+def owncloud_download_file_view(request: HttpRequest) -> JsonResponse:
+    if not request.user.is_staff:  # type: ignore
+        return JsonResponse(
+            {'error': 'Unauthorized'}, status=403
+        )
+
+    if request.method == "POST":
+        try:
+            owncloud_user = OwnCloudUser.objects.get(user=request.user)
+        except OwnCloudUser.DoesNotExist:
+            return JsonResponse(
+                {'error': (
+                    'OwnCloud user not configured. Please contact the moderation'
+                )}, status=404
+            )
+
+        file_path = request.POST.get("file_path", None)
+        output_path = request.POST.get("output_path", None)
+        imported_files = Path(settings.DBF_SINAN) / "imported"
+
+        if not file_path:
+            return JsonResponse(
+                {"error": "file_path must be specified"}, status=404
+            )
+
+        if not output_path:
+            file = Path(file_path)
+            output_path = str(imported_files / file.name)
+
+        try:
+            oc = owncloud.Client(settings.OWNCLOUD_URL)
+            oc.login(owncloud_user.username, owncloud_user.password)
+        except (owncloud.HTTPResponseError, AttributeError):
+            oc.logout()
+            return JsonResponse(
+                {'error': (
+                    'Unable to login with OwnCloud user '
+                    f'{owncloud_user.username}'
+                )}, status=403
+            )
+
+        task = owncloud_download_file.delay(
+            username=owncloud_user.username,
+            password=owncloud_user.password,
+            file_path=str(file_path),
+            output_path=str(output_path)
+        )
+
+        return JsonResponse(
+            {"task_id": task.id, "output_path": str(output_path)}, status=201
+        )
+
+    if request.method == "GET":
+        task_id = request.GET.get("task_id", None)
+        if task_id:
+            task = AsyncResult(task_id)
+            return JsonResponse({"task_status": task.status}, status=200)
+
+    return JsonResponse({"error": "Incorrect request"}, status=404)
 
 
 @never_cache

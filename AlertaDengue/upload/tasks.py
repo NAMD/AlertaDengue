@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import owncloud
 import pandas as pd
 import geopandas as gpd
 import dask.dataframe as dd
@@ -460,3 +461,20 @@ def save_to_pgsql(
         sinan_obj.parse_error = False
         sinan_obj.save(update_fields=['status', 'status_error', 'parse_error'])
         return 0
+
+
+@shared_task(default_retry_delay=30, max_retries=3, soft_time_limit=5*60)
+def owncloud_download_file(
+    username: str,
+    password: str,
+    file_path: str,
+    output_path: str
+) -> bool | None:
+    try:
+        oc = owncloud.Client(settings.OWNCLOUD_URL)
+        oc.login(username, password)
+        return bool(oc.get_file(file_path, output_path))
+    except (owncloud.HTTPResponseError, AttributeError):
+        return False
+    finally:
+        oc.logout()
