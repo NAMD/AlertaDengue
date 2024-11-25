@@ -515,8 +515,6 @@ def load_series(
     disease: str = "dengue",
     epiweek: int = 0,
     db_engine: Engine = DB_ENGINE,
-
-
 ):
     """
     Loads the alert series for visualization on the website.

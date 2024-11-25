@@ -1270,7 +1270,7 @@ class AlertaStateView(TemplateView):
             self._state_name[context["state"]], context["disease"]
         )
 
-        last_update = cities_alert.data_iniSE.max()
+        last_update = get_last_SE(context["disease"]).enddate()
         alerts = dict(
             cities_alert[["municipio_geocodigo", "level_alert"]].values
         )
