@@ -161,6 +161,7 @@ DATABASE_APPS_MAPPING = {
     "forecast": "forecast",
 }
 
+DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "3600"))  # Time to keep the connection open (in seconds)
 DATABASES = {
     "dados": {
         "ENGINE": "django.db.backends.postgresql",
@@ -169,6 +170,7 @@ DATABASES = {
         "PASSWORD": PSQL_PASSWORD,
         "HOST": PSQL_HOST,
         "PORT": PSQL_PORT,
+        "CONN_MAX_AGE": DB_CONN_MAX_AGE,
     },
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -177,6 +179,7 @@ DATABASES = {
         "PASSWORD": PSQL_PASSWORD,
         "HOST": PSQL_HOST,
         "PORT": PSQL_PORT,
+        "CONN_MAX_AGE": DB_CONN_MAX_AGE,
     },
     "infodengue": {
         "ENGINE": "django.db.backends.postgresql",
@@ -185,6 +188,7 @@ DATABASES = {
         "PASSWORD": PSQL_PASSWORD,
         "HOST": PSQL_HOST,
         "PORT": PSQL_PORT,
+        "CONN_MAX_AGE": DB_CONN_MAX_AGE,
     },
     "forecast": {
         "ENGINE": "django.db.backends.postgresql",
@@ -193,6 +197,7 @@ DATABASES = {
         "PASSWORD": PSQL_PASSWORD,
         "HOST": PSQL_HOST,
         "PORT": PSQL_PORT,
+        "CONN_MAX_AGE": DB_CONN_MAX_AGE,
     },
 }
 
