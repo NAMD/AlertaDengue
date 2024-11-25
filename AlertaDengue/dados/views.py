@@ -12,7 +12,7 @@ import altair as alt
 import fiona
 import numpy as np
 import pandas as pd
-from dados.dbdata import get_epiyears
+from dados.dbdata import get_epiyears, get_last_SE
 
 #
 from django.apps import apps
@@ -303,6 +303,7 @@ class AlertaMunicipioPageView(AlertCityPageBaseView):
         disease_code = context["disease"]
         disease_label = _get_disease_label(disease_code)
         geocode = context["geocodigo"]
+        last_SE = get_last_SE(disease_code)
 
         # Fetch city info from cache or database
         city_info = cache.get(f"city_info:{geocode}")
@@ -381,10 +382,10 @@ class AlertaMunicipioPageView(AlertCityPageBaseView):
                 "min_est": min_max_est[0],
                 "max_est": min_max_est[1],
                 "series_casos": {geocode: case_series[-12:]},
-                "SE": SE,
-                "WEEK": str(SE)[4:],
-                "data1": dia.strftime("%d de %B de %Y"),
-                "data2": dia + timedelta(6),
+                "SE": int(str(last_SE)),
+                "WEEK": str(last_SE.week),
+                "data1": last_SE.startdate(),
+                "data2": last_SE.enddate(),
                 "last_year": last_year,
                 "look_back": len(total_series),
                 "total_series": ", ".join(map(str, total_series)),
