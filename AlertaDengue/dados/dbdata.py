@@ -12,6 +12,7 @@ from typing import List, Optional, Tuple
 import ibis
 import numpy as np
 import pandas as pd
+from epiweeks import Week
 from ad_main.settings import APPS_DIR, get_ibis_conn, get_sqla_conn
 from django.conf import settings
 from django.core.cache import cache
@@ -485,6 +486,20 @@ def get_last_alert(geo_id, disease, db_engine: Engine = DB_ENGINE):
 
     with db_engine.connect() as conn:
         return pd.read_sql_query(sql, conn)
+
+
+def get_last_SE(disease, db_engine: Engine = DB_ENGINE) -> Week:
+    table_name = "Historico_alerta" + get_disease_suffix(disease)
+
+    sql = f"""
+    SELECT "SE"
+    FROM "Municipio"."{table_name}"
+    ORDER BY "data_iniSE" DESC
+    LIMIT 1
+    """
+
+    df = pd.read_sql_query(sql, db_engine.raw_connection())
+    return Week.fromstring(str(df.SE.iloc[0]))
 
 
 def load_series(
