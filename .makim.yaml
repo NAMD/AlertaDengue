@@ -19,18 +19,18 @@ groups:
             default: runserver
         run: |
           cd AlertaDengue &&
-          {{ vars.manage_py }} {{ args.subcommand }}
+          ${{ vars.manage_py }} ${{ args.subcommand }}
 
       # CONTAINER
       static-collectstatic:
         help: Collect static files into a single location.
         run: |
-          {{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd {{ vars.manage_py }} collectstatic --noinput
+          ${{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd ${{ vars.manage_py }} collectstatic --noinput
 
       static-geofiles:
         help: Generate geojson files and save them in the staticfiles folder.
         run: |
-          {{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd {{ vars.manage_py }} sync_geofiles
+          ${{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd ${{ vars.manage_py }} sync_geofiles
 
       migrate:
         help: Apply database migrations for specified databases.
@@ -40,24 +40,24 @@ groups:
             "--database=infodengue",
             # "--database=forecast"
           ]:
-            {{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd {{ vars.manage_py }} migrate --noinput @(cmd)
+            ${{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd ${{ vars.manage_py }} migrate --noinput @(cmd)
 
       send-mail-partner:
         help: Send email to partners.
         run: |
-          {{ vars.sugar_run_rm }} --cmd {{ vars.manage_py }} send_mail
+          ${{ vars.sugar_run_rm }} --cmd ${{ vars.manage_py }} send_mail
 
       # TESTS
       test-staging-web:
         help: Run specific tests for web staging.
         run: |
           for test_name in ['dados', 'dbf', 'gis', 'api']:
-            {{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd . /opt/services/test.sh @(test_name)
+            ${{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd . /opt/services/test.sh @(test_name)
 
       test-staging-all:
         help: Run all tests for web staging.
         run: |
-          {{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd {{ vars.manage_py }} test --noinput
+          ${{ vars.sugar_run_rm }} --entrypoint "/entrypoint.sh" --cmd ${{ vars.manage_py }} test --noinput
 
   develop:
     env-file: .env
@@ -148,4 +148,4 @@ groups:
             type: string
             default: clearcache
         run: |
-          {{ vars.manage_py }} {{ args.subcommand }}
+          ${{ vars.manage_py }} ${{ args.subcommand }}
